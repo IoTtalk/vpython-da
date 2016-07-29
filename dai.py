@@ -155,7 +155,6 @@ cmd_list = []
 
 
 def main(endpoint, mac_addr, profile, ida, dfs, cmds):
-    global ida
     
     add_df(*dfs)
     add_cmd(
