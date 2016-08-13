@@ -8,9 +8,6 @@ from visual import *
 
 
 class Speed(dai2.ODF):
-    def __init__(self):
-        super(Speed, self).__init__('Speed')
-
     def pull(self, data):
         ida.values['speed'] = data[0]
         ida.dirty['speed'] = True
@@ -23,7 +20,7 @@ class IDA(object):
             'speed': False,
         }
         self.defaults = {
-            'speed': 10,
+            'speed': 3,
         }
         self.values = {key: self.defaults[key] for key in self.defaults}
         self.speed_threshold = 5
@@ -94,9 +91,6 @@ class IDA(object):
 
                 self.dirty[key] = False
 
-            if self.speed > 10:
-                self.speed = 10
-
             speed = self.speed
 
             init_value_box.text = 'Initial values:\nFriction: 0.5\nSpeed: ' + str(round(speed, 1))
@@ -107,8 +101,7 @@ class IDA(object):
                 speed += self.a * self.dt
                 delta_angle = speed * self.dt + 0.5 * self.a * self.dt **2
                 ball.rotate(angle = delta_angle, axis = vector(0, 1, 0))
-                if frame_count % 1000 == 0:
-                    ball_pos_box.text = 'Speed:' + str(round(speed, 1))
+                ball_pos_box.text = 'Speed:' + str(round(speed, 1))
                 frame_count += 1
                 if self.speed_former * speed <= 0:
                     break

@@ -8,30 +8,28 @@ import dan
 
 
 class DF(object):
-    def __init__(self, name):
-        self.name = name
+    @property
+    def name(self):
+        return self.__class__.__name__
+
+    def __init__(self):
         self.selected = False
 
 
 class ODF(DF):
-    def __init__(self, name):
-        super(ODF, self).__init__(name)
-
     def pull(self, data):
         pass
 
 
 class IDF(DF):
-    def __init__(self, name):
-        super(IDF, self).__init__(name)
-
     def push(self, *args):
         dan.push(self.name, args)
 
 
 class Command(object):
-    def __init__(self, name):
-        self.name = name
+    @property
+    def name(self):
+        return self.__class__.__name__
 
     def run(self, dl_cmd_params, ul_cmd_params):
         print('OAO')
@@ -73,7 +71,7 @@ def get_cmd(cmd_name):
     try:
         return next(
             cmd for cmd in cmd_list
-            if cmd.name == cmd_name or cmd.name + '_RSP' == cmd_name
+            if cmd_name in (cmd.name, cmd.name + '_RSP')
         )
     except StopIteration:
         return None
@@ -85,9 +83,6 @@ def logging(fmt, *args, **kwargs):
 
 
 class SET_DF_STATUS(Command):
-    def __init__(self):
-        super(SET_DF_STATUS, self).__init__('SET_DF_STATUS')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
             flags = dl_cmd_params[0]
@@ -107,9 +102,6 @@ class SET_DF_STATUS(Command):
 
 
 class RESUME(Command):
-    def __init__(self):
-        super(RESUME, self).__init__('RESUME')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
             ida.suspended = False
@@ -126,9 +118,6 @@ class RESUME(Command):
 
 
 class SUSPEND(Command):
-    def __init__(self):
-        super(SUSPEND, self).__init__('SUSPEND')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
             ida.suspended = False
@@ -170,6 +159,7 @@ def main(endpoint, mac_addr, profile, g):
                 elif Command in g[i].__bases__:
                     print('CMD:', i)
                     cmds.append(g[i]())
+
             elif i == 'ida' and g[i].__class__.__name__ == 'IDA':
                 ida = g[i]
 
@@ -189,7 +179,7 @@ def main(endpoint, mac_addr, profile, g):
     )
     add_cmd(*cmds)
 
-    profile['df_list'] = [df.name for df in df_list]
+    profile['df_list'] = [df.__class__.__name__ for df in df_list]
 
     endpoint = dan.init(DAN2DAI(), endpoint, mac_addr, profile)
 
