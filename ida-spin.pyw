@@ -1,12 +1,13 @@
 import random
 
 import dan
-import dai
+import dai2
 import wx
 
 from visual import *
 
-class Speed(dai.ODF):
+
+class Speed(dai2.ODF):
     def __init__(self):
         super(Speed, self).__init__('Speed')
 
@@ -14,7 +15,8 @@ class Speed(dai.ODF):
         ida.values['speed'] = data[0]
         ida.dirty['speed'] = True
 
-class IDA:
+
+class IDA(object):
     def __init__(self):
         self.suspended = True
         self.dirty = {
@@ -84,7 +86,7 @@ class IDA:
             pos=vector(0, 0.35, 0.1),
             material=materials.earth,
         )
-        
+
         while True:
             for key in ['speed']:
                 if not self.dirty[key]:
@@ -110,24 +112,21 @@ class IDA:
                 frame_count += 1
                 if self.speed_former * speed <= 0:
                     break
+
                 self.speed_former_former = speed
-                
-            # sleep(1)
 
 mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
 ida = IDA()
 
-dai.main(
-	#'http://140.113.199.227:9999',
-	'http://localhost:9999',
+dai2.main(
+    #'http://140.113.199.227:9999',
+    'http://localhost:9999',
     mac_addr,
-	{
-		'd_name': 'sample da - Spin',
-		'dm_name': 'Ball-Spin',
-		'u_name': 'yb',
-		'is_sim': False,
-	},
-    ida,
-    [Speed()],
-    [],
+    {
+        'd_name': 'sample da - Spin',
+        'dm_name': 'Ball-Spin',
+        'u_name': 'yb',
+        'is_sim': False,
+    },
+    globals()
 )
