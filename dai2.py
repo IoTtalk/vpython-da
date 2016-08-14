@@ -120,7 +120,7 @@ class RESUME(Command):
 class SUSPEND(Command):
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
-            ida.suspended = False
+            ida.suspended = True
             get_cmd('SUSPEND_RSP').run(None, ['OK'])
 
         elif dl_cmd_params is None:
@@ -140,9 +140,12 @@ cmd_list = []
 ida = None
 
 
-def main(endpoint, mac_addr, profile, g):
+def main(g):
     global df_list
     global ida
+    mac_addr = None
+    profile = None
+    endpoint = None
 
     idfs = []
     odfs = []
@@ -163,14 +166,40 @@ def main(endpoint, mac_addr, profile, g):
             elif i == 'ida' and g[i].__class__.__name__ == 'IDA':
                 ida = g[i]
 
+            elif i == 'mac_addr' and isinstance(g[i], str):
+                mac_addr = g[i]
+
+            elif i == 'profile' and isinstance(g[i], dict):
+                profile = g[i]
+
+            elif i == 'endpoint' and isinstance(g[i], str):
+                endpoint = g[i]
+
         except AttributeError:
             pass
 
-    if ida is None:
-        print('ida object not found, did you forgot inherit the IDA from "object"?')
-
     df_list.extend(idfs)
     df_list.extend(odfs)
+
+    if not ida:
+        print('"ida" object not found, did you forgot inherit the IDA from "object"?')
+        exit(1)
+
+    if not df_list:
+        print('Empty DF, did you forgot inherit IDF/ODF?')
+        exit(1)
+
+    if not mac_addr:
+        print('"mac_addr" not found, you must declare it as a string')
+        exit(1)
+
+    if not profile:
+        print('"profile" not found, you must declare it as a dictionary')
+        exit(1)
+
+    if not endpoint:
+        print('"endpoint" not found, you must declare it as a string')
+        exit(1)
 
     add_cmd(
         SET_DF_STATUS(),

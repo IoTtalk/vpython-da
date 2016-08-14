@@ -96,30 +96,29 @@ class IDA(object):
             init_value_box.text = 'Initial values:\nFriction: 0.5\nSpeed: ' + str(round(speed, 1))
             frame_count = 0
 
-            while True:
-                rate(1000)
-                speed += self.a * self.dt
-                delta_angle = speed * self.dt + 0.5 * self.a * self.dt **2
-                ball.rotate(angle = delta_angle, axis = vector(0, 1, 0))
-                ball_pos_box.text = 'Speed:' + str(round(speed, 1))
-                frame_count += 1
-                if self.speed_former * speed <= 0:
-                    break
-
-                self.speed_former_former = speed
+            if self.suspended:
+                sleep(1)
+            else:
+                while True:
+                    rate(1000)
+                    speed += self.a * self.dt
+                    delta_angle = speed * self.dt + 0.5 * self.a * self.dt **2
+                    ball.rotate(angle = delta_angle, axis = vector(0, 1, 0))
+                    ball_pos_box.text = 'Speed:' + str(round(speed, 1))
+                    frame_count += 1
+                    if self.speed_former * speed <= 0:
+                        break
 
 mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
 ida = IDA()
 
-dai2.main(
-    #'http://140.113.199.227:9999',
-    'http://localhost:9999',
-    mac_addr,
-    {
-        'd_name': 'sample da - Spin',
-        'dm_name': 'Ball-Spin',
-        'u_name': 'yb',
-        'is_sim': False,
-    },
-    globals()
-)
+profile = {
+    'd_name': 'Sample da - Spin',
+    'dm_name': 'Ball-Spin',
+    'u_name': 'yb',
+    'is_sim': False,
+}
+
+endpoint = 'http://localhost:9999'
+
+dai2.main(globals())
