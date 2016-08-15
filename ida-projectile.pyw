@@ -10,9 +10,6 @@ import axis_projectile
 
 
 class Angle(dai.ODF):
-    def __init__(self):
-        super(Angle, self).__init__('Angle')
-
     def pull(self, data):
         # angle that larger than 90 degrees
         #  (i.e. shoot the ball to the ground)
@@ -21,67 +18,41 @@ class Angle(dai.ODF):
             data[0] = 90
 
         # translate degrees to radius
-        ida.values['angle'] = data[0] * 2 * pi / 360
-        ida.dirty['angle'] = True
+        ida['angle'] = data[0] * 2 * pi / 360
 
 
 class Height(dai.ODF):
-    def __init__(self):
-        super(Height, self).__init__('Height')
-
     def pull(self, data):
-        ida.values['height'] = data[0]
-        ida.dirty['height'] = True
+        ida['height'] = data[0]
 
 
 class Speed(dai.ODF):
-    def __init__(self):
-        super(Speed, self).__init__('Speed')
-
     def pull(self, data):
-        ida.values['speed'] = data[0]
-        ida.dirty['speed'] = True
+        ida['speed'] = data[0]
 
 
-def init_df_list():
-    add_df(
-        Angle(),
-        Height(),
-        Speed(),
-    )
+class IDA(object):
+    def __setitem__(self, key, value):
+        self.values[key] = value
+        self.dirty[key] = True
 
+    def __getitem__(self, key):
+        if self.dirty.get(key):
+            self.dirty[key] = False
+            return self.values[key]
 
-def init_cmd_list():
-    pass
+        return self.defaults[key]
 
-
-class IDA:
     def __init__(self):
         self.suspended = True
-        self.dirty = {
-            'angle': False,
-            'height': False,
-            'speed': False,
-        }
         self.defaults = {
             'angle': 45 * 2 * pi / 360,
             'height': 75,
             'speed': 10,
         }
-        self.values = {key: self.defaults[key] for key in self.defaults}
+        self.values = {}
+        self.dirty = {}
         self.speed_threshold = 5
-
-    @property
-    def angle(self):
-        return self.values['angle']
-
-    @property
-    def height(self):
-        return self.values['height']
-
-    @property
-    def speed(self):
-        return self.values['speed']
 
     def iot_app(self):
         class window_n(window):
@@ -110,14 +81,26 @@ class IDA:
                 height=25,
                 border=15,
                 font='monospace',
-                color=color.white
+                color=color.white,
+                text='\n'.join([
+                    'Initial values:',
+                    'Height: ',
+                    'Angle: ',
+                    'Speed: ',
+                ])
         )
         ball_pos_box = label(
                 pos=vector(400, 270, 0),
                 height=25,
                 border=15,
                 font='monospace',
-                color=color.white
+                color=color.white,
+                text='\n'.join([
+                    'Position:',
+                    'X: ',
+                    'Y: ',
+                    'Z: ',
+                ])
         )
 
         ball = sphere(
@@ -127,30 +110,32 @@ class IDA:
         g = 9.8
         dt = 0.005
         while True:
-            for key in ['angle', 'height', 'speed']:
-                if not self.dirty[key]:
-                    self.values[key] = self.defaults[key]
+            if self.suspended:
+                sleep(1)
+                continue
 
-                self.dirty[key] = False
+            angle = self['angle']
+            height = self['height']
+            speed = self['speed']
 
-            if self.values['speed'] < self.speed_threshold:
+            if speed < self.speed_threshold:
                 continue
 
             ball_touch = 0
             frame_count = 0
             ball.visible = True
-            ball.pos = vector(0, self.height + 8.25, 0)
+            ball.pos = vector(0, height + 8.25, 0)
 
             ball.velocity = vector(
-                    self.speed * cos(self.angle),
-                    self.speed * sin(self.angle),
+                    speed * cos(angle),
+                    speed * sin(angle),
                     0
             )
             init_value_box.text = '\n'.join([
                     'Initial values:',
-                    'Height: {:.1f}'.format(self.height),
-                    'Angle: {}'.format(self.angle * 360 / 2 / pi),
-                    'Speed: {:.1f}'.format(self.speed),
+                    'Height: {:.1f}'.format(height),
+                    'Angle: {}'.format(angle * 360 / 2 / pi),
+                    'Speed: {:.1f}'.format(speed),
             ])
 
             while True:
@@ -177,21 +162,16 @@ class IDA:
                 frame_count += 1
 
             ball.visible = False
-            # sleep(1)
 
-mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
+
 ida = IDA()
+endpoint = 'http://localhost:9999'
+mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
+profile = {
+    'd_name': 'sample da',
+    'dm_name': 'Ball-Projectile',
+    'u_name': 'yb',
+    'is_sim': False,
+}
 
-dai.main(
-    'http://localhost:9999',
-    mac_addr,
-    {
-        'd_name': 'sample da',
-        'dm_name': 'Ball-Projectile',
-        'u_name': 'yb',
-        'is_sim': False,
-    },
-    ida,
-    [Angle(), Height(), Speed()],
-    [],
-)
+dai.main(globals())
