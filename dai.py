@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import random
 import threading
 import time
@@ -6,30 +8,28 @@ import dan
 
 
 class DF(object):
-    def __init__(self, name):
-        self.name = name
+    @property
+    def name(self):
+        return self.__class__.__name__
+
+    def __init__(self):
         self.selected = False
 
 
 class ODF(DF):
-    def __init__(self, name):
-        super(ODF, self).__init__(name)
-
     def pull(self, data):
         pass
 
 
 class IDF(DF):
-    def __init__(self, name):
-        super(IDF, self).__init__(name)
-
     def push(self, *args):
         dan.push(self.name, args)
 
 
 class Command(object):
-    def __init__(self, name):
-        self.name = name
+    @property
+    def name(self):
+        return self.__class__.__name__
 
     def run(self, dl_cmd_params, ul_cmd_params):
         print('OAO')
@@ -55,12 +55,6 @@ class DAN2DAI(object):
             logging('ODF not found: {}', odf_name)
 
 
-def add_df(*dfs):
-    global df_list
-    for df in dfs:
-        df_list.append(df)
-
-
 def get_df(df_name):
     try:
         return next(df for df in df_list if df.name == df_name)
@@ -77,7 +71,7 @@ def get_cmd(cmd_name):
     try:
         return next(
             cmd for cmd in cmd_list
-            if cmd.name == cmd_name or cmd.name + '_RSP' == cmd_name
+            if cmd_name in (cmd.name, cmd.name + '_RSP')
         )
     except StopIteration:
         return None
@@ -89,9 +83,6 @@ def logging(fmt, *args, **kwargs):
 
 
 class SET_DF_STATUS(Command):
-    def __init__(self):
-        super(SET_DF_STATUS, self).__init__('SET_DF_STATUS')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
             flags = dl_cmd_params[0]
@@ -111,9 +102,6 @@ class SET_DF_STATUS(Command):
 
 
 class RESUME(Command):
-    def __init__(self):
-        super(RESUME, self).__init__('RESUME')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
             ida.suspended = False
@@ -130,12 +118,9 @@ class RESUME(Command):
 
 
 class SUSPEND(Command):
-    def __init__(self):
-        super(SUSPEND, self).__init__('SUSPEND')
-
     def run(self, dl_cmd_params, ul_cmd_params):
         if ul_cmd_params is None:
-            ida.suspended = False
+            ida.suspended = True
             get_cmd('SUSPEND_RSP').run(None, ['OK'])
 
         elif dl_cmd_params is None:
@@ -152,11 +137,73 @@ class SUSPEND(Command):
 LOGGING = True
 df_list = []
 cmd_list = []
+ida = None
 
 
-def main(endpoint, mac_addr, profile, ida, dfs, cmds):
-    
-    add_df(*dfs)
+def main(g):
+    global df_list
+    global ida
+    mac_addr = None
+    profile = None
+    endpoint = None
+
+    idfs = []
+    odfs = []
+    cmds = []
+    for i in g:
+        try:
+            if g[i].__class__ == type:
+                if IDF in g[i].__bases__:
+                    print('IDF:', i)
+                    idfs.append(g[i]())
+                elif ODF in g[i].__bases__:
+                    print('ODF:', i)
+                    odfs.append(g[i]())
+                elif Command in g[i].__bases__:
+                    print('CMD:', i)
+                    cmds.append(g[i]())
+
+            elif (i == 'ida'
+                  and g[i].__class__.__name__ == 'IDA'
+                  and hasattr(g[i], 'iot_app')
+                  and hasattr(g[i].iot_app, '__call__')):
+                ida = g[i]
+
+            elif i == 'mac_addr' and isinstance(g[i], str):
+                mac_addr = g[i]
+
+            elif i == 'profile' and isinstance(g[i], dict):
+                profile = g[i]
+
+            elif i == 'endpoint' and isinstance(g[i], str):
+                endpoint = g[i]
+
+        except AttributeError:
+            pass
+
+    df_list.extend(idfs)
+    df_list.extend(odfs)
+
+    if not ida:
+        print('"ida" object not found, did you forgot inherit the IDA from "object"?')
+        exit(1)
+
+    if not df_list:
+        print('Empty DF, did you forgot inherit IDF/ODF?')
+        exit(1)
+
+    if not mac_addr:
+        print('"mac_addr" not found, you must declare it as a string')
+        exit(1)
+
+    if not profile:
+        print('"profile" not found, you must declare it as a dictionary')
+        exit(1)
+
+    if not endpoint:
+        print('"endpoint" not found, you must declare it as a string')
+        exit(1)
+
     add_cmd(
         SET_DF_STATUS(),
         RESUME(),
@@ -164,7 +211,7 @@ def main(endpoint, mac_addr, profile, ida, dfs, cmds):
     )
     add_cmd(*cmds)
 
-    profile['df_list'] = [df.name for df in df_list]
+    profile['df_list'] = [df.__class__.__name__ for df in df_list]
 
     endpoint = dan.init(DAN2DAI(), endpoint, mac_addr, profile)
 

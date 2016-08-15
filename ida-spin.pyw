@@ -1,28 +1,37 @@
 import random
 
 import dan
-import dai2
+import dai
 import wx
 
 from visual import *
 
 
-class Speed(dai2.ODF):
+class Speed(dai.ODF):
     def pull(self, data):
-        ida.values['speed'] = data[0]
-        ida.dirty['speed'] = True
+        ida['speed'] = data[0]
 
 
 class IDA(object):
+    def __setitem__(self, key, value):
+        self.values[key] = value
+        self.dirty[key] = True
+
+    def __getitem__(self, key):
+        if self.dirty.get(key):
+            self.dirty[key] = False
+            return self.values[key]
+
+        return self.defaults[key]
+
     def __init__(self):
         self.suspended = True
-        self.dirty = {
-            'speed': False,
-        }
         self.defaults = {
             'speed': 3,
         }
-        self.values = {key: self.defaults[key] for key in self.defaults}
+        self.values = {}
+        self.dirty = {}
+
         self.speed_threshold = 5
         self.g = 9.8
         self.m = 0.5
@@ -32,11 +41,6 @@ class IDA(object):
         self.ball_inertia = 2 * self.m * 0.35 ** 2 / 3
         self.torque = -self.fric_coef * self.m * self.g * self.s
         self.a = self.torque / self.ball_inertia
-        self.speed_former = self.speed
-
-    @property
-    def speed(self):
-        return self.values['speed']
 
     def iot_app(self):
         class window_n(window):
@@ -49,13 +53,15 @@ class IDA(object):
                 super(window_n, self)._OnExitApp(evt)
 
         my_window = window_n(title='Spin'+ mac_addr, width=700, height=700)
-        scene = display(window=my_window, width=700, height=700,
+        scene = display(
+                window=my_window, width=700, height=700,
                 forward=vector(0, -0.8, -1),
                 background=vector(1, 1, 1),
                 center=vector(0, 0.25, 0),
                 range=1
         )
-        floor = box(length=3,
+        floor = box(
+                length=3,
                 height=0.01, width=2,
                 material=materials.wood,
         )
@@ -85,33 +91,25 @@ class IDA(object):
         )
 
         while True:
-            for key in ['speed']:
-                if not self.dirty[key]:
-                    self.values[key] = self.defaults[key]
-
-                self.dirty[key] = False
-
-            speed = self.speed
-
-            init_value_box.text = 'Initial values:\nFriction: 0.5\nSpeed: ' + str(round(speed, 1))
-            frame_count = 0
-
             if self.suspended:
                 sleep(1)
-            else:
-                while True:
-                    rate(1000)
-                    speed += self.a * self.dt
-                    delta_angle = speed * self.dt + 0.5 * self.a * self.dt **2
-                    ball.rotate(angle = delta_angle, axis = vector(0, 1, 0))
-                    ball_pos_box.text = 'Speed:' + str(round(speed, 1))
-                    frame_count += 1
-                    if self.speed_former * speed <= 0:
-                        break
+                continue
 
-mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
+            speed = self['speed']
+            init_value_box.text = 'Initial values:\nFriction: 0.5\nSpeed: ' + str(round(speed, 1))
+            while True:
+                rate(1000)
+                speed += self.a * self.dt
+                delta_angle = speed * self.dt + 0.5 * self.a * self.dt **2
+                ball.rotate(angle = delta_angle, axis = vector(0, 1, 0))
+                ball_pos_box.text = 'Speed:' + str(round(speed, 1))
+                if speed <= 0:
+                    break
+
+
 ida = IDA()
-
+endpoint = 'http://localhost:9999'
+mac_addr = '00' + ''.join(hex(random.randint(0, 16))[2:] for i in range(10))
 profile = {
     'd_name': 'Sample da - Spin',
     'dm_name': 'Ball-Spin',
@@ -119,6 +117,4 @@ profile = {
     'is_sim': False,
 }
 
-endpoint = 'http://localhost:9999'
-
-dai2.main(globals())
+dai.main(globals())
